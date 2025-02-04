@@ -1,0 +1,40 @@
+---
+- name: F5-Find and Delete inactive and old image HD
+   hosts: "{{hostname}}"
+  connection: local
+  gather_facts: false
+  # vars:
+  #   N_code: 16.1.3.2
+  #   NM1_code: 13.1.3.6
+  tasks:
+    - name: Checking hostname validity
+      ansible.builtin.fail:
+        msg: "invalid: list of hosts provided {{ansible_play_hosts_all}}, please provide single host"
+      when: hostname == "all" or ansible_play_hosts_all | length > 1
+    - name: show sys software status 
+      bigip_command:
+        commands: show sys software status 
+        provider: "{{ provider }}"
+      register: sw_status_output
+    - name: set software status output as fact 
+      ansible.builtin.set_fact:
+        hd_list: "{{ sw_status_output.stdout_lines[0] | regex_findall ('(HD\\S+ )\\s+BIG-IP\\s+(\\S+)\\s+\\S+\\s+(\\S+)') }}"
+
+    - name: filter hd_list for not matching NM1_code, N_code and not non_active
+      ansible.builtin.set_fact:
+        filtered_list: "{{ (hd_list | selectattr('2', '==', 'no') | selectattr('1', '!=', N_code) | selectattr('1', '!=', NM1_code) | list) }}"
+    - name: Print Filtered list
+      debug:
+        var: filtered_list
+    
+    - name: final list
+      ansible.builtin.set_fact:
+        delete_list: "{{ filtered_list | map(attribute=0) | map('regex_replace', '\\s+', '') | map('regex_replace', '^', 'delete sys software volume ') | list }}"  
+
+    - name: Delete inactive and old version volumes
+      bigip_command:
+        commands: "{{item}}"
+        provider: "{{ provider }}"
+      loop: "{{delete_list}}"
+      when: item != "[]"
+      register: command_output

@@ -1,0 +1,22 @@
+---
+- name: run bacs commands
+  hosts: "{{hostname}}"
+  connection: local
+  gather_facts: false
+  vars:
+    provider:
+      server: 10.92.250.15
+      password: Disney!123
+      user: admin
+      validate_certs: no
+      server_port: 443
+  tasks:
+    - name: Checking hostname validity
+      ansible.builtin.fail:
+        msg: "invalid: list of hosts provided {{ansible_play_hosts_all}}, please provide single host"
+      when: hostname == "all" or ansible_play_hosts_all | length > 1
+    - name: run bash commands 
+      bigip_command:
+        commands: >
+            run /util bash -c "{{md5_file}}"
+        provider: "{{ provider }}"

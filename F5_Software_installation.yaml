@@ -1,0 +1,42 @@
+---
+- name: F5 software installation 
+  hosts: "{{hostname}}"
+  connection: local
+  gather_facts: false
+  # vars:
+  #   image: "BIGIP-13.1.3.6-0.0.4.iso"
+  tasks:
+    - name: Checking hostname validity
+      ansible.builtin.fail:
+        msg: "invalid: list of hosts provided {{ansible_play_hosts_all}}, please provide single host"
+      when: hostname == "all" or ansible_play_hosts_all | length > 1
+    - name: show sys software status 
+      bigip_command:
+        commands: show sys software status 
+        provider: "{{ provider }}"
+      register: new_device_facts
+    - name: set software status output as fact 
+      ansible.builtin.set_fact:
+        new_hd_list: "{{ new_device_facts.stdout_lines[0] | regex_findall ('(HD\\S+ )') }}"
+    - name: new HD list joint
+      ansible.builtin.set_fact:
+        hdlist_string: "{{new_hd_list | join(' ')}}"
+    - name: set new HD fact
+      ansible.builtin.set_fact:
+        newHD: |
+          {% if 'HD1.1' not in hdlist_string %}
+            HD1.1
+          {% elif 'HD1.2' not in hdlist_string%}
+            HD1.2
+          {% elif 'HD1.3' not in hdlist_string%}
+            HD1.3
+          {% elif 'HD1.4' not in hdlist_string%}
+            HD1.4
+          {% endif %}
+    - name: image installation
+      bigip_software_install:
+        image: "{{image}}"
+        state: installed
+        volume: "{{newHD | trim}}"
+        provider: "{{ provider }}"
+      register: Installation_status

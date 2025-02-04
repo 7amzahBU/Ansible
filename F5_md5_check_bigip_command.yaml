@@ -1,0 +1,30 @@
+---
+- name: md5 check
+  hosts: "{{hostname}}"
+  connection: local
+  gather_facts: false
+  # vars:
+  #   md5_file: BIGIP-13.1.3.6-0.0.4.iso.md5
+  tasks:
+    - name: Checking hostname validity
+      ansible.builtin.fail:
+        msg: "invalid: list of hosts provided {{ansible_play_hosts_all}}, please provide single host"
+      when: hostname == "all" or ansible_play_hosts_all | length > 1
+    - name: check md5 commands
+      bigip_command:
+        commands: >
+            run /util bash -c "
+            cd /shared/images;
+            md5sum --check //shared/images/{{md5_file}}
+            "
+        provider: "{{ provider }}"
+      register: md5_output
+
+    - name: set md5_output as a fact
+      ansible.builtin.set_fact: 
+        md5_result: "{{md5_output | regex_findall('BIGIP.+\\.iso\\:\\s+(\\w+)')}}"
+
+    - name: Checking md5_result
+      ansible.builtin.fail:
+        msg: MD5 {{md5_file}} check failed 
+      when: md5_result[0] != 'OK'
