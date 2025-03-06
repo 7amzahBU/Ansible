@@ -1,0 +1,26 @@
+---
+- name: Check image installation progress
+  hosts: "{{hostname}}"
+  connection: local
+  gather_facts: false
+  # vars:
+  #   version: 14.1.0
+  tasks:
+  - name: show sys software status
+    bigip_command:
+      commands: show sys software status
+      provider: "{{ provider }}"
+    register: sw_status_output
+  - name: set software status output as fact
+    ansible.builtin.set_fact:
+      sw_status_list: "{{ sw_status_output.stdout_lines[0] | regex_findall ('(HD\\S+ )\\s+BIG-IP\\s+(\\S+)\\s+\\S+\\s+(\\S+)\\s+(\\w+)') }}"
+  - name: Set facts for incomplete items
+    ansible.builtin.set_fact:
+      incomplete_sw: "{{ incomplete_sw | default([]) + [item[-1]] }}"
+    loop: "{{ sw_status_list }}"
+    when: item[1] == "{{version}}"
+
+  - name: check sys install
+    ansible.builtin.fail:
+      msg: system installation not completed
+    when: incomplete_sw[0] != 'complete'

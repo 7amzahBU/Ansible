@@ -1,0 +1,43 @@
+---
+- name: Check F5 Software image file
+  hosts: "{{hostname}}"
+  connection: local
+  gather_facts: false
+  # vars:
+  #   image: BIGIP-14.1.0.0.0.116.iso
+  tasks:
+  - name: list sys software image
+    bigip_command:
+      commands: list sys software image
+      provider: "{{ provider }}"
+    register: sw_images
+  - name: stdoutline to fact
+    ansible.builtin.set_fact:
+      stdout_lines: "{{ sw_images.stdout_lines[0] }}"
+  - name: sw_images into one string
+    ansible.builtin.set_fact:
+      string: "{{ sw_images.stdout_lines[0] | join(' ') }}"
+  - name: list of software image
+    ansible.builtin.set_fact:
+      list: "{{ string | regex_findall('[^}]+') | list }}"
+  - name: Initialize list to hold image data
+    set_fact:
+      software_images: []
+  - name: Extract software image name and version
+    set_fact:
+      software_images: "{{ software_images + [{'image_name': (item | regex_findall('sys software image\\s+(\\S+\\.iso)') | first ), 'version': (item | regex_findall('version\\s+([\\d\\.]+)') | first)}] }}"
+    loop: "{{ list }}"
+    when: "'version' in item or 'sys' in item"
+  - name: Initialize list to hold image data
+    set_fact:
+      target_image_version: "no image"
+  - name: Extract software image name and version
+    ansible.builtin.set_fact:
+      target_image_version: "{{ item.version | default('no image')}}"
+    loop: "{{ software_images }}"
+    when: item.image_name == "{{image}}"
+
+  - name: Checking file result
+    ansible.builtin.fail:
+      msg: Image {{image}} is not on the device
+    when: target_image_version == "no image"

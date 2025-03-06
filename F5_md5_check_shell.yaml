@@ -1,0 +1,15 @@
+---
+- name: "f5 Md5_check "
+  hosts: "{{hostname}}"
+  connection: local
+  gather_facts: no
+
+  tasks:
+  - name: Checking hostname validity
+    ansible.builtin.fail:
+      msg: "invalid: list of hosts provided {{ansible_play_hosts_all}}, please provide single host"
+    when: hostname == "all" or ansible_play_hosts_all | length > 1
+  - name: Get the MD5sum of the file
+    shell: |
+      cd /shared/images
+      md5sum --check /shared/images/"{{md5_file}}"

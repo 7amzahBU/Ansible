@@ -1,0 +1,13 @@
+---
+- name: Reboot installed volume
+  hosts: "{{hostname}}"
+  connection: local
+  gather_facts: false
+  # vars:
+  #   volume: HD1.2
+  tasks:
+  - name: show version
+    bigip_command:
+      commands: reboot volume "{{ volume }}"
+      provider: "{{ provider }}"
+    register: device_facts

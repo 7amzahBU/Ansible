@@ -1,0 +1,24 @@
+---
+- name: Registeration Key installation
+  hosts: "{{hostname}}"
+  connection: local
+  gather_facts: false
+  tasks:
+  - name: Grep Registration Key
+    bigip_command:
+      commands: run /util bash -c "grep Registration /config/bigip.license"
+      provider: "{{ provider }}"
+    register: Registeration_Key
+  - name: set registeration key as a fact
+    ansible.builtin.set_fact:
+      key: "{{ Registeration_Key.stdout_lines[0][0] | regex_findall ('Registration\\s+Key\\s+\\:\\s+(\\S+)') }}"
+  - name: Activate License Key
+    bigip_command:
+      commands: run /util bash -c "SOAPLicenseClient --basekey {{key[0]}}"
+      provider: "{{ provider }}"
+    register: reload_license_check
+
+  - name: Checking license installation
+    ansible.builtin.fail:
+      msg: License faild to install
+    when: "'New license installed' not in reload_license_check.stdout_lines[-1][-1]"

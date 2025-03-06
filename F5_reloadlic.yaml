@@ -1,0 +1,24 @@
+---
+- name: Reload F5 License
+  hosts: "{{hostname}}"
+  connection: local
+  gather_facts: false
+  tasks:
+  - name: reload license
+    bigip_command:
+      commands: run /util bash -c reloadlic
+      provider: "{{ provider }}"
+    register: reload_license_out
+  - name: Wait for 30 seconds before continuing
+    pause:
+      seconds: 30
+  - name: reload license log
+    bigip_command:
+      commands: run /util bash -c "grep Initialization /var/log/ltm"
+      provider: "{{ provider }}"
+    register: reload_license_check
+
+  - name: Checking file result
+    ansible.builtin.fail:
+      msg: License faild to reload
+    when: "'The MCP is up and running' not in reload_license_check.stdout_lines[-1][-1]"
